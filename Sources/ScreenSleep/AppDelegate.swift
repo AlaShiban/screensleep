@@ -112,6 +112,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         menu.addItem(submenu("Fade Over", fade, tag: 105))
 
+        menu.addItem(item("Wake on Activity", #selector(toggleWakeOnActivity), tag: 110))
         menu.addItem(item("Include External Displays", #selector(toggleExternal), tag: 106))
         menu.addItem(item("Launch at Login", #selector(toggleLaunchAtLogin), tag: 107))
         menu.addItem(.separator())
@@ -141,6 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.item(withTag: 101)?.state = prefs.enabled ? .on : .off
         menu.item(withTag: 102)?.title = dimmer.state == .idleWatching ? "Dim Now" : "Restore Brightness"
         menu.item(withTag: 108)?.title = "Undim to \(Int(prefs.undimBrightness * 100))%"
+        menu.item(withTag: 110)?.state = prefs.wakeOnActivity ? .on : .off
         menu.item(withTag: 106)?.state = prefs.dimExternal ? .on : .off
         menu.item(withTag: 107)?.state = launchAtLoginEnabled ? .on : .off
 
@@ -165,7 +167,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func statusLine() -> String {
         switch dimmer.state {
         case .dimming: return "Dimming…"
-        case .dimmed: return "Screen dimmed"
+        case .dimmed: return dimmer.isHoldingDim ? "Dimmed — holding until you restore" : "Screen dimmed"
         case .restoring: return "Restoring…"
         case .idleWatching:
             guard prefs.enabled else { return "Auto Dimmer is off" }
@@ -231,6 +233,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func setFade(_ sender: NSMenuItem) {
         guard let value = sender.representedObject as? Double else { return }
         prefs.fadeSeconds = value
+    }
+
+    @objc private func toggleWakeOnActivity() {
+        prefs.wakeOnActivity.toggle()
     }
 
     @objc private func toggleExternal() {

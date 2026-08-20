@@ -77,6 +77,15 @@ jitter so a borderline comparison doesn't produce a spurious wake.
 `systemUptime` is used rather than wall-clock `Date` because it is monotonic and unaffected
 by clock changes or NTP steps.
 
+### Sticky dims
+
+The wake rule only applies to *automatic* dims. `dim(sticky:)` marks a dim the user asked
+for by hand, and a sticky dim ignores input entirely — it ends only via `restore()` or
+`undim(to:)`. The reasoning is intent: an idle dim is the app guessing you left, so any
+input disproves the guess and should undo it; **Dim Now** is you stating you want the screen
+dark, and typing at a screen you deliberately blanked shouldn't overrule that. The
+`wakeOnActivity` preference extends the same hold to automatic dims.
+
 ## Choosing the level to restore
 
 Naively you'd read the brightness at dim time and put that back. Two things break it:
@@ -91,9 +100,15 @@ continuously refreshed record of the brightness you had while demonstrably prese
 time the app restores `max(lastActiveLevels[id], current)`, which can't be fooled by a
 fade that has already begun.
 
-For (2), `lastWritten` records the exact value written to each display. At restore time, if
-the panel no longer matches what the app last wrote (tolerance `0.03`), someone else moved
-it — you, or the system — and that display is left alone.
+For (2), `lastWritten` records the exact value written to each display. At restore time the
+app backs off only if the panel is meaningfully *brighter* than it left it (`> 0.15`) —
+i.e. you turned it up to keep working, so your level wins.
+
+The asymmetry matters. An earlier version compared `abs(written - current) > 0.03` in both
+directions, which ambient-light auto-brightness trips on its own: set the panel to 0.05 and
+the ALS drifts it to ~0.10 within seconds. The app would read that as "the user took over",
+skip the restore, and strand you on a dark screen when you came back. Drift is not a
+decision; only a deliberate brighten is.
 
 ## Fading
 

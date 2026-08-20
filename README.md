@@ -50,18 +50,21 @@ Click the menu bar icon:
 | --- | --- |
 | *status line* | Live state — "Dims in 12m 30s", "Dimming…", or "Screen dimmed" |
 | **Auto Dimmer** | Master on/off. Off cancels any dim in progress. |
-| **Dim Now** / **Restore Brightness** | Dim immediately, or cancel a dim and go back to your previous level |
+| **Dim Now** / **Restore Brightness** | Dim immediately, or cancel a dim and go back to your previous level. A dim you trigger here **holds** — typing won't undo it. |
 | **Undim to N%** | Jump straight to a fixed level (default 50%), *ignoring* the remembered brightness. Works from any state — also an escape hatch if a restore ever lands somewhere too dark. |
 | **Dim After** | 1, 2, 5, 10, 15, 30, 45, 60 minutes, or **Custom…** — decimals allowed, `0.5` = 30 seconds |
 | **Dim To** | How dark to go: Black (0%), 5%, 10%, 20% |
 | **Undim To** | Level the **Undim** command targets: 25%, 50%, 75%, 100% |
 | **Fade Over** | Fade duration: Instant, 1s, 3s, 5s, 10s |
+| **Wake on Activity** | Whether an *automatic* dim ends the moment you touch the keyboard or mouse (on by default). Off means the screen stays dark until you restore it from the menu. |
 | **Include External Displays** | Also dim external monitors that expose a software brightness control |
 | **Launch at Login** | Registers the app as a login item via `SMAppService` |
 
-**Waking it up.** Any keypress, mouse move, or trackpad touch restores your previous
-brightness. Specifically, it wakes on input that arrives *after* the dim began — so
-clicking **Dim Now** doesn't instantly cancel itself.
+**Waking it up.** An *automatic* dim ends on the first keypress, mouse move, or trackpad
+touch (specifically: input arriving *after* the dim began). A dim you asked for with **Dim
+Now** is different — you chose darkness, so it **holds through typing** and ends only when
+you pick *Restore Brightness* or *Undim*. Turn off **Wake on Activity** to make automatic
+dims hold the same way.
 
 **Menu bar icon** — `sun.max` while armed and awake, `moon.zzz` while dimmed, and a sun
 with a warning badge when Auto Dimmer is switched off.
@@ -79,6 +82,7 @@ or scripted with `defaults`:
 | `undimBrightness` | Double | `0.5` | **Undim** target, `0.0`–`1.0` |
 | `fadeSeconds` | Double | `3` | Fade duration; `0` is instant |
 | `dimExternal` | Bool | `true` | Include external displays |
+| `wakeOnActivity` | Bool | `true` | Automatic dims end on input; hand-triggered dims always hold |
 
 ```bash
 defaults read com.local.screensleep                    # show current settings

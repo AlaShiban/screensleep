@@ -44,6 +44,9 @@ final class Dimmer {
     private var dimStartedAt: TimeInterval = 0
     /// Slack for poll/fade jitter when comparing the idle clock against the dim start.
     private let wakeMargin: TimeInterval = 1.0
+    /// A dim the user asked for by hand stays dark until they say otherwise — typing at a
+    /// screen you deliberately blanked shouldn't undo it.
+    private var isSticky = false
 
     // MARK: - Lifecycle
 
@@ -99,6 +102,9 @@ final class Dimmer {
             if idle < presenceThreshold { sampleActiveLevels() }
             if idle >= prefs.idleSeconds { dim() }
         case .dimming, .dimmed:
+            // A sticky (hand-triggered) dim ignores input entirely; only Undim or
+            // Restore Brightness ends it.
+            guard !isSticky, prefs.wakeOnActivity else { break }
             // Wake only on input that arrived *after* we started dimming — otherwise the
             // very click that asked for the dim would cancel it on the next tick.
             let sinceDim = ProcessInfo.processInfo.systemUptime - dimStartedAt
@@ -123,13 +129,15 @@ final class Dimmer {
     // MARK: - Dim / restore
 
     /// Fade every controllable display down to the target level.
-    func dim() {
+    /// - Parameter sticky: if true, the dim survives keyboard and mouse input and ends
+    ///   only when the user explicitly restores or undims.
+    func dim(sticky: Bool = false) {
         guard state == .idleWatching else {
             dimLog.info("dim() ignored, state=\(String(describing: self.state), privacy: .public)")
             return
         }
         let ids = displays()
-        dimLog.info("dim() starting, \(ids.count) display(s), target=\(self.prefs.targetBrightness)")
+        dimLog.info("dim(sticky: \(sticky)) starting, \(ids.count) display(s), target=\(self.prefs.targetBrightness)")
         guard !ids.isEmpty else {
             dimLog.error("dim() aborted: no controllable displays")
             return
@@ -148,6 +156,7 @@ final class Dimmer {
         guard !restoreLevels.isEmpty else { return }
 
         state = .dimming
+        isSticky = sticky
         dimStartedAt = ProcessInfo.processInfo.systemUptime
         let target = prefs.targetBrightness
         fade(from: from, to: ids.reduce(into: [:]) { $0[$1] = target }) { [weak self] in
@@ -167,9 +176,11 @@ final class Dimmer {
         var to: [CGDirectDisplayID: Double] = [:]
         for (id, saved) in restoreLevels {
             guard let current = BrightnessAPI.get(id) else { continue }
-            // If the level no longer matches what we wrote, the user (or the system)
-            // took the wheel while we were dimmed — leave their choice alone.
-            if let written = lastWritten[id], abs(written - current) > 0.03 { continue }
+            // Back off only if the panel is meaningfully *brighter* than we left it —
+            // that means the user turned it up to keep working, so their level wins.
+            // Small drift in either direction is ambient-light auto-brightness, not a
+            // decision; treating that as an override would strand them on a dark screen.
+            if let written = lastWritten[id], current - written > 0.15 { continue }
             from[id] = current
             to[id] = saved
         }
@@ -190,6 +201,7 @@ final class Dimmer {
     /// usable screen right now" escape hatch if a restore ever lands somewhere wrong.
     func undim(to level: Double) {
         cancelFade()
+        isSticky = false
         let ids = displays()
         dimLog.info("undim() to \(level, format: .fixed(precision: 2)) from state=\(String(describing: self.state), privacy: .public)")
         guard !ids.isEmpty else { return }
@@ -204,16 +216,21 @@ final class Dimmer {
     }
 
     private func finishRestore() {
+        isSticky = false
         restoreLevels = [:]
         lastWritten = [:]
         state = .idleWatching
         sampleActiveLevels()
     }
 
-    /// Toggle used by the menu's "Dim Now" / "Restore" item.
+    /// True while a hand-triggered dim is holding through user input.
+    var isHoldingDim: Bool { isSticky }
+
+    /// Toggle used by the menu's "Dim Now" / "Restore" item. A dim asked for here is
+    /// sticky: the user chose darkness, so input alone doesn't undo it.
     func toggleDimNow() {
         switch state {
-        case .idleWatching: dim()
+        case .idleWatching: dim(sticky: true)
         case .dimming, .dimmed, .restoring: restore()
         }
     }

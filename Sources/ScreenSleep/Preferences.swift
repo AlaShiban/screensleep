@@ -11,6 +11,7 @@ final class Preferences {
         static let undimBrightness = "undimBrightness"
         static let fadeSeconds = "fadeSeconds"
         static let dimExternal = "dimExternal"
+        static let wakeOnActivity = "wakeOnActivity"
     }
 
     private let defaults = UserDefaults.standard
@@ -23,6 +24,7 @@ final class Preferences {
             Key.undimBrightness: 0.5,
             Key.fadeSeconds: 3.0,
             Key.dimExternal: true,
+            Key.wakeOnActivity: true,
         ])
     }
 
@@ -61,5 +63,13 @@ final class Preferences {
     var dimExternal: Bool {
         get { defaults.bool(forKey: Key.dimExternal) }
         set { defaults.set(newValue, forKey: Key.dimExternal) }
+    }
+
+    /// Whether an *automatic* dim ends as soon as you touch the keyboard or mouse.
+    /// Off means the screen stays dark until you restore it from the menu.
+    /// Hand-triggered dims always hold, regardless of this setting.
+    var wakeOnActivity: Bool {
+        get { defaults.bool(forKey: Key.wakeOnActivity) }
+        set { defaults.set(newValue, forKey: Key.wakeOnActivity) }
     }
 }

@@ -51,9 +51,29 @@ conferencing apps).
 controllable displays`, means nothing on this machine exposes a software brightness control
 — see *External monitor doesn't dim* below.
 
+## The auto-timer never fires, but Dim Now works
+
+Almost always this means the idle clock never actually reaches the threshold. 15 minutes
+means 15 minutes with *no input at all*; a single cursor twitch resets it. Check the peak
+idle your machine actually reaches:
+
+```bash
+log show --last 60m --info --predicate 'subsystem == "com.local.screensleep"' --style compact \
+  | grep -o 'idle=[0-9.]*s' | sort -t= -k2 -n | tail -1
+```
+
+If the largest value is well under your threshold, the app is working and the threshold is
+simply longer than any break you take — lower **Dim After**, or set it to `0.5` (30 seconds)
+via **Custom…** to confirm the whole cycle end to end.
+
 ## It dims and immediately un-dims
 
-Expected if you touched something after the dim began — that's the wake rule working.
+Only automatic dims do this. **Dim Now** is sticky and holds through typing — if a
+hand-triggered dim is ending on input, that's a bug.
+
+For automatic dims it's expected if you touched something after the dim began — that's the
+wake rule working. To make them hold too, untick **Wake on Activity**; the screen then stays
+dark until you choose *Restore Brightness* or *Undim*.
 The log makes the difference obvious:
 
 ```
